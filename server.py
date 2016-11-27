@@ -13,7 +13,6 @@ print("server started")
 while 1:
 	message = rdt_obj.rdt_receive()
 	message = message.decode("utf-8")
-	print(message)
 	if os.path.isfile("server/"+message):
 		file = open("server/"+message, "rb")
 		fileSize = os.stat("server/"+message).st_size

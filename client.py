@@ -10,9 +10,10 @@ clientSocket = socket(AF_INET, SOCK_DGRAM) #make udp socket
 rdt_obj = rdt(clientSocket, (serverName, serverPort))
 
 
-clientSocket.sendto(message.encode(), (serverName, serverPort)) #send file name
 rdt_obj.rdt_send(message.encode())
 receivedMessage = rdt_obj.rdt_receive()
+
+print(receivedMessage)
 
 fileSize = int(receivedMessage.decode("utf-8")) #decode file size
 

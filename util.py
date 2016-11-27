@@ -12,7 +12,7 @@ class rdt:
 	def __init__(self, socket, toAdd):
 		self.selfSocket = socket
 		self.toAdd = toAdd
-		# self.selfSocket.setblocking(0)
+		self.selfSocket.setblocking(0)
 
 	def rdt_send(self, msg):
 		length = len(msg)
@@ -42,16 +42,19 @@ class rdt:
 			ready = select.select([self.selfSocket], [], [], self.timeoutVal)
 			if(ready[0]):
 				data,self.toAdd = self.selfSocket.recvfrom(packet_data_size+2)
+				print("rdt")
+				print(data)
 				rec_seq = getSeqNum(data)
-				while(rec_seq != self.recv_seq_num):
+				if(rec_seq != self.recv_seq_num):
 					makePkt(b"", self.recv_seq_num)
-					ready = select.select([self.selfSocket], [], [], self.timeoutVal)
-					if(ready[0]):
-						data,self.toAdd = self.selfSocket.recvfrom(packet_data_size+2)
-						rec_seq = getSeqNum(data)
-						#print(data[1:].decode("utf-8"))
-				self.recv_seq_num = (self.recv_seq_num + 1)%2
-				return data[1:]
+					self.selfSocket.sendto(makePkt(b'',self.recv_seq_num), self.toAdd)	
+				else:
+					self.selfSocket.sendto(makePkt(b'',self.recv_seq_num), self.toAdd)
+					self.recv_seq_num = (self.recv_seq_num + 1)%2
+					return data[1:]
+			else:
+				#do nothing for now
+				continue
 
 
 def getSeqNum(data):
