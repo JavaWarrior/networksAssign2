@@ -1,16 +1,15 @@
 from socket import *
 from util import *
+from consts import *
 import threading
 import os
-CHUNK_SIZE = 500
-port = 5000
-bufferSize = 1000
 
-def serverMain():
+
+def serverMain(serverPort, windowSize, seed, plb):
 	serverSocket = socket(AF_INET, SOCK_DGRAM)
-	serverSocket.bind(("", port))
+	serverSocket.bind(("", serverPort))
 
-	rdt_obj = rdt(serverSocket, ("localhost", port))
+	rdt_obj = rdt(serverSocket, ("localhost", serverPort))
 
 	print("server started")
 	while 1:
@@ -36,10 +35,10 @@ def threadFunc(fileName,clientAdd):
 
 		rdt_obj.rdt_send(str(fileSize).encode())
 
-		chunk = file.read(CHUNK_SIZE)
+		chunk = file.read(packet_data_size)
 		while chunk:
 			rdt_obj.rdt_send(chunk)
-			chunk = file.read(CHUNK_SIZE)
+			chunk = file.read(packet_data_size)
 		file.close()
 		print("Sent successfully")
 	else:
@@ -54,6 +53,11 @@ def readParams(fileName):
 	serverPort = int(file.readline())
 	windowSize = int(file.readline())
 	seed = int(file.readline())
-	prob = int(file.readline())
-	return (serverPort, windowSize, seed, prob)
-serverMain()
+	plb = int(file.readline())
+	return (serverPort, windowSize, seed, plb)
+
+def startServer(fileName):
+	serverPort, windowSize, seed, plb = readParams(fileName)
+	serverMain(serverPort, windowSize, seed, plb)
+
+startServer('server.in')

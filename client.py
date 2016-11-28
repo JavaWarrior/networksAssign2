@@ -6,7 +6,7 @@ def clientMain(serverIP, serverPort, fileName, windowSize):
 	clientSocket = socket(AF_INET, SOCK_DGRAM) #make udp socket
 	rdt_obj = rdt(clientSocket, (serverIP, serverPort))
 
-
+	print("Requesting File:", fileName)
 	rdt_obj.rdt_send(fileName.encode())
 	receivedMessage = rdt_obj.rdt_receive()
 
