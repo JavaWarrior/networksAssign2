@@ -1,6 +1,8 @@
 from socket import *
 from util import *
 import threading
+import time
+
 def clientMain(serverIP, serverPort, fileName, windowSize):
 	# message = input("Enter file name:") #take file name as input
 	clientSocket = socket(AF_INET, SOCK_DGRAM) #make udp socket
@@ -17,9 +19,11 @@ def clientMain(serverIP, serverPort, fileName, windowSize):
 		print("file size: "+str(fileSize))
 
 		file = open("client/" + fileName, "a+b") #download file to client path
-
+		count = fileSize/packet_data_size
+		tic = time.time()
 		while fileSize:
 			chunk = rdt_obj.rdt_receive() #download file in chunks
+			printProgress(count - fileSize/packet_data_size, count,prefix = 'downloading', suffix = time.time() - tic)
 			fileSize = fileSize - len(chunk) #deduct length
 			file.write(chunk) #write chunk
 		file.close()
@@ -45,10 +49,23 @@ def runClient():
 	thread1 = threading.Thread(target = startClient, args = ("client.in",))
 	thread2 = threading.Thread(target = startClient, args = ("client1.in",))
 	thread3 = threading.Thread(target = startClient, args = ("client2.in",))
-	thread3.start()
-	thread2.start()
-	thread1.start()
+	thread4 = threading.Thread(target = startClient, args = ("client3.in",))
+	thread5 = threading.Thread(target = startClient, args = ("client4.in",))
 	
+	#parallel
+
+	# thread1.start()
+	# thread2.start()
+	# thread3.start()
+	# thread4.start()
+	# thread5.start()
 	
+	#sequential
+
+	# thread1.run()
+	# thread2.run()
+	# thread3.run()
+	# thread4.run()
+	thread5.run()
 
 runClient()

@@ -3,6 +3,7 @@ from util import *
 from consts import *
 import threading
 import os
+import time
 
 
 def serverMain(serverPort, windowSize, seed, plp):
@@ -31,7 +32,7 @@ def threadFunc(fileName, clientAdd, seed, plp):
 		file = open("server/"+fileName, "rb")
 		fileSize = os.stat("server/"+fileName).st_size
 		print("request: " + fileName + ", size: " + str(fileSize))
-
+		tic = time.time()
 		rdt_obj.rdt_send(str(fileSize).encode())
 
 		chunk = file.read(packet_data_size)
@@ -39,7 +40,7 @@ def threadFunc(fileName, clientAdd, seed, plp):
 			rdt_obj.rdt_send(chunk)
 			chunk = file.read(packet_data_size)
 		file.close()
-		print("Sent successfully")
+		print("Sent successfully in:", (time.time() - tic), "sec")
 	else:
 		print("requested file not found: "+ fileName)
 		rdt_obj.rdt_send(b"0")
