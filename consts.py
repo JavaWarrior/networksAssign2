@@ -1,3 +1,3 @@
 packet_data_size = 500
-start_timeout_val = 3
-max_trials_num = 5
+start_timeout_val = 0.1
+header_size = 1

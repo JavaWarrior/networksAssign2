@@ -4,13 +4,12 @@ import threading
 def clientMain(serverIP, serverPort, fileName, windowSize):
 	# message = input("Enter file name:") #take file name as input
 	clientSocket = socket(AF_INET, SOCK_DGRAM) #make udp socket
-	rdt_obj = rdt(clientSocket, (serverIP, serverPort))
-
+	rdt_obj = rdt(clientSocket, (serverIP, serverPort), 0, 0)
 	print("Requesting File:", fileName)
 	rdt_obj.rdt_send(fileName.encode())
 	receivedMessage = rdt_obj.rdt_receive()
 
-	print(receivedMessage)
+	# print(receivedMessage)
 
 	fileSize = int(receivedMessage.decode("utf-8")) #decode file size
 
@@ -24,7 +23,7 @@ def clientMain(serverIP, serverPort, fileName, windowSize):
 			fileSize = fileSize - len(chunk) #deduct length
 			file.write(chunk) #write chunk
 		file.close()
-		print("Received successfully.")
+		print(fileName,"Received successfully.")
 	else:
 		print("file not found")
 
@@ -46,8 +45,10 @@ def runClient():
 	thread1 = threading.Thread(target = startClient, args = ("client.in",))
 	thread2 = threading.Thread(target = startClient, args = ("client1.in",))
 	thread3 = threading.Thread(target = startClient, args = ("client2.in",))
-	thread1.run()
-	thread2.run()
-	thread3.run()
+	thread3.start()
+	thread2.start()
+	thread1.start()
+	
+	
 
 runClient()

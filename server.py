@@ -5,11 +5,10 @@ import threading
 import os
 
 
-def serverMain(serverPort, windowSize, seed, plb):
+def serverMain(serverPort, windowSize, seed, plp):
 	serverSocket = socket(AF_INET, SOCK_DGRAM)
 	serverSocket.bind(("", serverPort))
-
-	rdt_obj = rdt(serverSocket, ("localhost", serverPort))
+	rdt_obj = rdt(serverSocket, ("localhost", serverPort), plp, seed)
 
 	print("server started")
 	while 1:
@@ -18,16 +17,16 @@ def serverMain(serverPort, windowSize, seed, plb):
 		except:
 			continue
 		message = message.decode("utf-8")
-		task = threading.Thread(target = threadFunc, args = (message, rdt_obj.toAdd))
+		task = threading.Thread(target = threadFunc, args = (message, rdt_obj.toAdd, seed, plp))
 		task.start()
 		rdt_obj.clear()
 
 
-def threadFunc(fileName,clientAdd):
+def threadFunc(fileName, clientAdd, seed, plp):
 	# print("entered child")
 	threadSocket = socket(AF_INET, SOCK_DGRAM)
 	threadSocket.bind(("",0))
-	rdt_obj = rdt(threadSocket, clientAdd)
+	rdt_obj = rdt(threadSocket, clientAdd, plp, seed)
 	if os.path.isfile("server/"+fileName):
 		file = open("server/"+fileName, "rb")
 		fileSize = os.stat("server/"+fileName).st_size
@@ -53,11 +52,11 @@ def readParams(fileName):
 	serverPort = int(file.readline())
 	windowSize = int(file.readline())
 	seed = int(file.readline())
-	plb = int(file.readline())
-	return (serverPort, windowSize, seed, plb)
+	plp = float(file.readline())
+	return (serverPort, windowSize, seed, plp)
 
 def startServer(fileName):
-	serverPort, windowSize, seed, plb = readParams(fileName)
-	serverMain(serverPort, windowSize, seed, plb)
+	serverPort, windowSize, seed, plp = readParams(fileName)
+	serverMain(serverPort, windowSize, seed, plp)
 
 startServer('server.in')
