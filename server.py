@@ -5,59 +5,60 @@ import threading
 import os
 import time
 
+from rdt_stopandwait import *
 
-def serverMain(serverPort, windowSize, seed, plp):
-	serverSocket = socket(AF_INET, SOCK_DGRAM)
-	serverSocket.bind(("", serverPort))
-	rdt_obj = rdt(serverSocket, ("localhost", serverPort), plp, seed)
+def server_main(server_port, window_size, seed, plp):
+	server_socket = socket(AF_INET, SOCK_DGRAM)
+	server_socket.bind(("", server_port))
+	saw_rdt_obj = rdt_stopandwait(server_socket, ("localhost", server_port), plp, seed)
 
 	print("server started")
 	while 1:
 		try:
-			message = rdt_obj.rdt_receive()
+			message = saw_rdt_obj.rdt_receive()
 		except:
 			continue
 		message = message.decode("utf-8")
-		task = threading.Thread(target = threadFunc, args = (message, rdt_obj.toAdd, seed, plp))
+		task = threading.Thread(target = connection_thread, args = (message, saw_rdt_obj.to_add, seed, plp))
 		task.start()
-		rdt_obj.clear()
+		saw_rdt_obj.clear()
 
 
-def threadFunc(fileName, clientAdd, seed, plp):
+def connection_thread(filename, client_add, seed, plp):
 	# print("entered child")
-	threadSocket = socket(AF_INET, SOCK_DGRAM)
-	threadSocket.bind(("",0))
-	rdt_obj = rdt(threadSocket, clientAdd, plp, seed)
-	if os.path.isfile("server/"+fileName):
-		file = open("server/"+fileName, "rb")
-		fileSize = os.stat("server/"+fileName).st_size
-		print("request: " + fileName + ", size: " + str(fileSize))
+	thread_socket = socket(AF_INET, SOCK_DGRAM)
+	thread_socket.bind(("",0))
+	saw_rdt_obj = rdt_stopandwait(thread_socket, client_add, plp, seed)
+	if os.path.isfile("server/"+filename):
+		file = open("server/"+filename, "rb")
+		fileSize = os.stat("server/"+filename).st_size
+		print("request: " + filename + ", size: " + str(fileSize))
 		tic = time.time()
-		rdt_obj.rdt_send(str(fileSize).encode())
+		saw_rdt_obj.rdt_send(str(fileSize).encode())
 
 		chunk = file.read(packet_data_size)
 		while chunk:
-			rdt_obj.rdt_send(chunk)
+			saw_rdt_obj.rdt_send(chunk)
 			chunk = file.read(packet_data_size)
 		file.close()
-		print("Sent successfully in:", (time.time() - tic), "sec")
+		print("Sent successfully in:", util_round(time.time() - tic), "sec")
 	else:
-		print("requested file not found: "+ fileName)
-		rdt_obj.rdt_send(b"0")
+		print("requested file not found: "+ filename)
+		saw_rdt_obj.rdt_send(b"0")
 
-#thread = threading.Thread(target = threadFunc)
+#thread = threading.Thread(target = connection_thread)
 #thread.start()
 
-def readParams(fileName):
-	file = open(fileName)
-	serverPort = int(file.readline())
-	windowSize = int(file.readline())
+def read_params(filename):
+	file = open(filename)
+	server_port = int(file.readline())
+	window_size = int(file.readline())
 	seed = int(file.readline())
 	plp = float(file.readline())
-	return (serverPort, windowSize, seed, plp)
+	return (server_port, window_size, seed, plp)
 
-def startServer(fileName):
-	serverPort, windowSize, seed, plp = readParams(fileName)
-	serverMain(serverPort, windowSize, seed, plp)
+def start_server(filename):
+	server_port, window_size, seed, plp = read_params(filename)
+	server_main(server_port, window_size, seed, plp)
 
-startServer('server.in')
+start_server('server.in')

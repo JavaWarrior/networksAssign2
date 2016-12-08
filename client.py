@@ -1,56 +1,60 @@
 from socket import *
-from util import *
+from rdt_stopandwait import *
 import threading
 import time
+from util import *
 
-def clientMain(serverIP, serverPort, fileName, windowSize):
+def clientMain(serverIP, server_port, filename, window_size):
 	# message = input("Enter file name:") #take file name as input
-	clientSocket = socket(AF_INET, SOCK_DGRAM) #make udp socket
-	rdt_obj = rdt(clientSocket, (serverIP, serverPort), 0, 0)
-	print("Requesting File:", fileName)
-	rdt_obj.rdt_send(fileName.encode())
-	receivedMessage = rdt_obj.rdt_receive()
+	client_socket = socket(AF_INET, SOCK_DGRAM) #make udp socket
+	saw_rdt_obj = rdt_stopandwait(client_socket, (serverIP, server_port), 0, 0)
+	print("Requesting File:", filename)
+	saw_rdt_obj.rdt_send(filename.encode())
+	receivedMessage = saw_rdt_obj.rdt_receive()
 
 	# print(receivedMessage)
 
-	fileSize = int(receivedMessage.decode("utf-8")) #decode file size
+	filesize = int(receivedMessage.decode("utf-8")) #decode file size
 
-	if(fileSize >0):
-		print("file size: "+str(fileSize))
+	if(filesize >0):
+		print("file size: "+str(filesize))
 
-		file = open("client/" + fileName, "a+b") #download file to client path
-		count = fileSize/packet_data_size
+		file = open("client/" + filename, "a+b") #download file to client path
+		count = filesize/packet_data_size
 		tic = time.time()
-		while fileSize:
-			chunk = rdt_obj.rdt_receive() #download file in chunks
-			printProgress(count - fileSize/packet_data_size, count,prefix = 'downloading', suffix = time.time() - tic)
-			fileSize = fileSize - len(chunk) #deduct length
+		while filesize:
+			chunk = saw_rdt_obj.rdt_receive() #download file in chunks
+			print_download_bar(count - filesize/packet_data_size, count,prefix = 'downloading', suffix = util_round(time.time() - tic, 1000))
+			filesize = filesize - len(chunk) #deduct length
 			file.write(chunk) #write chunk
 		file.close()
-		print(fileName,"Received successfully.")
+		print('\n', filename,"Received successfully.")
 	else:
 		print("file not found")
 
-	clientSocket.close() #close socket
+	client_socket.close() #close socket
 
-def startClient(fileName):
-	serverIP,serverPort,fileName,windowSize = readParams(fileName)
-	clientMain(serverIP, serverPort, fileName, windowSize)
+def start_client(filename):
+	tic = time.time()
+	serverIP,server_port,filename,window_size = read_params(filename)
+	clientMain(serverIP, server_port, filename, window_size)
+	print(filename, 'completed in', util_round(time.time() - tic, 1000))
 
-def readParams(fileName):
-	file = open(fileName)
+def read_params(filename):
+	file = open(filename)
 	serverIP = file.readline()
-	serverPort = int(file.readline())
-	fileName = file.readline()
-	windowSize = int(file.readline())
-	return (serverIP[:-1], serverPort, fileName[:-1], windowSize)
+	server_port = int(file.readline())
+	filename = file.readline()
+	window_size = int(file.readline())
+	return (serverIP[:-1], server_port, filename[:-1], window_size)
 
-def runClient():
-	thread1 = threading.Thread(target = startClient, args = ("client.in",))
-	thread2 = threading.Thread(target = startClient, args = ("client1.in",))
-	thread3 = threading.Thread(target = startClient, args = ("client2.in",))
-	thread4 = threading.Thread(target = startClient, args = ("client3.in",))
-	thread5 = threading.Thread(target = startClient, args = ("client4.in",))
+def run_client():
+	tic = time.time()
+	thread1 = threading.Thread(target = start_client, args = ("client.in",))
+	thread2 = threading.Thread(target = start_client, args = ("client1.in",))
+	thread3 = threading.Thread(target = start_client, args = ("client2.in",))
+	thread4 = threading.Thread(target = start_client, args = ("client3.in",))
+	thread5 = threading.Thread(target = start_client, args = ("client4.in",))
 	
 	#parallel
 
@@ -62,10 +66,19 @@ def runClient():
 	
 	#sequential
 
-	# thread1.run()
+	thread1.run()
 	# thread2.run()
 	# thread3.run()
 	# thread4.run()
-	thread5.run()
+	# thread5.run()
 
-runClient()
+	print('whole run completed in:', util_round(time.time() - tic, 1000))
+
+run_client()
+
+
+def delete_file_first(filename):
+	try:
+		os.remove(filename)
+	except OSError:
+		pass
