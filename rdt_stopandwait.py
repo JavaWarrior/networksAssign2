@@ -7,9 +7,9 @@ import array
 import sys
 from rdt_interface import *
 from util import *
+import time
 class rdt_stopandwait(rdt):
 	# constants #
-	start_timeout_val = 0.2
 	header_size = 3
 	# constants #
 	
@@ -17,16 +17,16 @@ class rdt_stopandwait(rdt):
 	recv_seq_num = 0
 	self_socket = 0
 	to_add = 0
-	timeout_val = start_timeout_val
+	timeout_val = 0
 	plp = 0
-	rtt = 1
-
+	
 	def __init__(self, socket, to_add, plp, seed):
 		self.self_socket = socket
 		self.to_add = to_add
 		self.self_socket.setblocking(0)
 		self.plp = plp
 		random.seed(seed)
+		self.timeout_val = self.start_timeout_val
 
 	def clear(self):
 		self.send_seq_num = 0
@@ -37,7 +37,7 @@ class rdt_stopandwait(rdt):
 	def rdt_send(self, msg):
 		length = len(msg)
 		sent = 0
-		max_trials_num = max(10, length / packet_data_size * 2)
+		max_trials_num = max(10, length / packet_data_size * 3)
 		while (sent < length):
 			data = 0
 			if(packet_data_size + sent < length):
@@ -47,9 +47,10 @@ class rdt_stopandwait(rdt):
 				data = self.make_pkt(msg[sent:length], self.send_seq_num)
 				sent = length
 			trials = 0
-			while trials < max_trials_num:
+			while 1:
 				# print(sent)
 				# print('sending packet')
+				packet_time_start = time.time()
 				self.send_pkt(data)
 				ready = select.select([self.self_socket], [], [], self.timeout_val)
 				if(ready[0]):
@@ -57,19 +58,20 @@ class rdt_stopandwait(rdt):
 					data,self.to_add = self.self_socket.recvfrom(packet_data_size+self.header_size)
 					if(self.get_seq_num(data) == self.send_seq_num):
 						#expected ack
+						self.timeout_val = self.calc_timeout(time.time() - packet_time_start)
 						break
 					else:
 						trials = trials + 1
 				else:
 					trials = trials + 1
 			self.send_seq_num = (self.send_seq_num + 1)% 2
-		if(trials == max_trials_num):
-			raise Exception("timed out")
+		# if(trials == max_trials_num):
+		# 	raise Exception("timed out")
 
 	def rdt_receive(self):
 		trials = 0
-		max_trials_num = 10
-		while(trials < max_trials_num):
+		max_trials_num = 100
+		while(1):
 			ready = select.select([self.self_socket], [], [], self.timeout_val)
 			if(ready[0]):
 				data,self.to_add = self.self_socket.recvfrom(packet_data_size+self.header_size)
@@ -88,11 +90,11 @@ class rdt_stopandwait(rdt):
 				else:
 					#ack nothing here 
 					trials = trials + 1
-					print('received corrupted packet')
+					# print('received corrupted packet')
 			else:
 				trials = trials + 1
-		if(trials == max_trials_num):
-			raise Exception("timed out")
+		# if(trials == max_trials_num):
+		# 	raise Exception("timed out")
 	def send_pkt(self, pkt):
 		if(random.random() >= self.plp):
 			# print(self.plp)
@@ -119,3 +121,4 @@ class rdt_stopandwait(rdt):
 		checksum_val = int.from_bytes(pkt[1:3],byteorder = 'big')
 		# print(checksum_val, checksum(data), data)
 		return (checksum(data)==checksum_val)
+

@@ -41,7 +41,7 @@ def connection_thread(filename, client_add, seed, plp):
 			saw_rdt_obj.rdt_send(chunk)
 			chunk = file.read(packet_data_size)
 		file.close()
-		print("Sent successfully in:", util_round(time.time() - tic), "sec")
+		print("Sent successfully in:", util_round(time.time() - tic, 1000), "sec")
 	else:
 		print("requested file not found: "+ filename)
 		saw_rdt_obj.rdt_send(b"0")
