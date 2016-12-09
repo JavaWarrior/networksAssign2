@@ -85,6 +85,6 @@ def delete_file_first(filename):
 	except OSError:
 		pass
 
-run_client()
+# run_client()
 
 
