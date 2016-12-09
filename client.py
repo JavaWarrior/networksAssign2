@@ -74,8 +74,8 @@ def run_client():
 	# thread1.run()
 	# thread2.run()
 	# thread3.run()
-	# thread4.run()
-	thread5.run()
+	thread4.run()
+	# thread5.run()
 
 	print('whole run completed in:', util_round(time.time() - tic, 1000))
 

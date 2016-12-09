@@ -39,6 +39,7 @@ def connection_thread(filename, client_add, seed, plp):
 		chunk = file.read(packet_data_size)
 		while chunk:
 			saw_rdt_obj.rdt_send(chunk)
+			print('lol')
 			chunk = file.read(packet_data_size)
 		file.close()
 		print("Sent successfully in:", util_round(time.time() - tic, 1000), "sec")
