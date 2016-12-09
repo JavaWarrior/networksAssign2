@@ -47,8 +47,8 @@ class rdt_stopandwait(rdt):
 		max_trials_num = 3			#at most connection will drop every packet once or twice
 		trials = 0					#number of trials to send packets
 		to_be_send = self.make_pkt(msg, self.send_seq_num) #make packet to be send
-		while trials <= max_trials_num:
-		# while 1:
+		# while trials <= max_trials_num:
+		while 1:
 			# print('sending packet', len(msg))	
 			packet_time_start = time.time()			#store time when packet was sent
 			self.send_pkt(to_be_send)						#send packet
@@ -69,15 +69,15 @@ class rdt_stopandwait(rdt):
 			else:
 				trials = trials + 1
 		self.send_seq_num = (self.send_seq_num + 1)% 2
-		if(trials > max_trials_num):
-			raise Exception("timed out")
+		# if(trials > max_trials_num):
+			# raise Exception("timed out")
 
 	def rdt_receive(self):
 		trials = 0
 		max_trials_num = 3
 
-		# while(1):
-		while(trials <= max_trials_num):
+		while(1):
+		# while(trials <= max_trials_num):
 			ready = select.select([self.self_socket], [], [], self.timeout_val)	#wait till received packet
 			if(ready[0]):	#something is received
 				rcvd_pkt,self.to_add = self.self_socket.recvfrom(packet_data_size+self.header_size) #get received packet
@@ -109,8 +109,8 @@ class rdt_stopandwait(rdt):
 					# print('received corrupted packet')
 			else:
 				trials = trials + 1
-		if(trials > max_trials_num):
-			raise Exception("timed out")
+		# if(trials > max_trials_num):
+			# raise Exception("timed out")
 	def send_pkt(self, pkt):
 		if(random.random() >= self.plp):
 			# print(self.plp)

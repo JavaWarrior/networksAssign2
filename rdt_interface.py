@@ -27,6 +27,6 @@ class rdt:
 		# return 0.001	#used when we want to define constant rtt
 		self.rtt_exp = 0.875 * self.rtt_exp + 0.125 * new_rtt
 		self.rtt_var = 0.75 * self.rtt_var + 0.25 * abs(self.rtt_exp - new_rtt)
-		print(new_rtt, self.rtt_exp + 4 * self.rtt_var)
-		return max(self.rtt_exp + 4 * self.rtt_var, 0.001)
+		# print(new_rtt, self.rtt_exp + 4 * self.rtt_var)
+		return max(self.rtt_exp + 4 * self.rtt_var, 0.003)
 
