@@ -19,6 +19,8 @@ class rdt_stopandwait(rdt):
 	to_add = 0
 	timeout_val = 0
 	plp = 0
+
+	recv_last_pack = -1 #last received packet time
 	
 	def __init__(self, socket, to_add, plp, seed):
 		self.self_socket = socket
@@ -78,14 +80,17 @@ class rdt_stopandwait(rdt):
 				# print("rdt")
 				# print(data)
 				rec_seq = self.get_seq_num(data)
-				# print("cur seq num:", self.recv_seq_num , "packet seq num:" ,rec_seq)
+				print("cur seq num:", self.recv_seq_num , "packet seq num:" ,rec_seq)
 				if(rec_seq != self.recv_seq_num):
 					self.send_pkt(self.make_pkt(b'',(self.recv_seq_num+1)%2))
 					trials = trials + 1
-					print('received wrong packet')
+					# print('received wrong packet')
 				elif (self.check_valid(data)):
+					if(self.recv_last_pack != -1):
+						self.timeout_val = self.calc_timeout(time.time() - self.recv_last_pack)
 					self.send_pkt(self.make_pkt(b'',self.recv_seq_num))
 					self.recv_seq_num = (self.recv_seq_num + 1)%2
+					self.recv_last_pack = time.time()
 					return self.get_data(data)
 				else:
 					#ack nothing here 
