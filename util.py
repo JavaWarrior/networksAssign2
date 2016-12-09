@@ -48,8 +48,8 @@ class rdt:
 				ready = select.select([self.selfSocket], [], [], self.timeoutVal)
 				if(ready[0]):
 					# print('received packet')
-					data,self.toAdd = self.selfSocket.recvfrom(packet_data_size+header_size)
-					if(getSeqNum(data) == self.send_seq_num):
+					rec_data,self.toAdd = self.selfSocket.recvfrom(packet_data_size+header_size)
+					if(getSeqNum(rec_data) == self.send_seq_num):
 						#expected ack
 						break
 					else:
