@@ -3,7 +3,7 @@ from abc import ABCMeta, abstractmethod
 class rdt:
 	__metaclass__ = ABCMeta
 	
-	start_timeout_val = 0.01
+	start_timeout_val = 0.5
 
 	rtt_exp = start_timeout_val
 	rtt_var = 0
