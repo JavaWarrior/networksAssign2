@@ -68,6 +68,9 @@ def connection_thread(filename, client_add, seed, plp):
 		print("requested file not found: "+ filename)
 		saw_rdt_obj.rdt_send(b"0")
 
+	thread_socket.shutdown(1)
+	thread_socket.close()
+
 #thread = threading.Thread(target = connection_thread)
 #thread.start()
 

@@ -12,8 +12,8 @@ def run_test(serverfilename):
 	time.sleep(1)
 	out = open('tests/stopwait_out_'+serverfilename+'.out', 'w')
 
-	out.write(serverfilename)
-	out.write('\n')
+	# out.write(serverfilename)
+	# out.write('\n')
 	
 	for file in files:
 		times = [0] * 5
@@ -29,6 +29,7 @@ def run_test(serverfilename):
 		out.write('\n')
 
 	thread_server.turn_off()
+	time.sleep(1)
 
 
 run_test('server_0.in')

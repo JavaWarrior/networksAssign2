@@ -3,7 +3,7 @@ from abc import ABCMeta, abstractmethod
 class rdt:
 	__metaclass__ = ABCMeta
 	
-	start_timeout_val = 0.1
+	start_timeout_val = 0.01
 
 	rtt_exp = start_timeout_val
 	rtt_var = 0
@@ -27,6 +27,9 @@ class rdt:
 		# return 0.001	#used when we want to define constant rtt
 		self.rtt_exp = 0.875 * self.rtt_exp + 0.125 * new_rtt
 		self.rtt_var = 0.75 * self.rtt_var + 0.25 * abs(self.rtt_exp - new_rtt)
-		# print(new_rtt, self.rtt_exp + 4 * self.rtt_var)
-		return max(self.rtt_exp + 4 * self.rtt_var, 0.003)
+		# print('\n', new_rtt, self.rtt_exp, self.rtt_var)
+		# debug = open('rtt_debug.csv', 'w')
+		# debug.write(str(new_rtt) + ', ' + str(self.rtt_exp) + ', ' + str(self.rtt_var))
+		# return max(self.rtt_exp + 4 * self.rtt_var, 0.003)
+		return self.rtt_exp + 4 * self.rtt_var
 
