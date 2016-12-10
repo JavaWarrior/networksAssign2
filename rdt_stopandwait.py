@@ -45,17 +45,17 @@ class rdt_stopandwait(rdt):
 		trials = 0					#number of trials to send packets
 		to_be_sent = self.make_pkt(msg, self.send_seq_num) #make packet to be send
 		packet_time_start = time.time()			#store time when packet was sent
+		self.send_pkt(to_be_sent)						#send packet
 		# while trials <= max_trials_num:
 		while 1:
 			# print('sending packet', len(msg))	
-			self.send_pkt(to_be_sent)						#send packet
 			ready = select.select([self.self_socket], [], [], self.timeout_val)	#wait for ack
 			if(ready[0]):		#packet received
 				# print('received packet')
 				rcvd_pkt,self.to_add = self.self_socket.recvfrom(packet_data_size+self.header_size)
 				#receive packet 
 				# print(self.to_add)
-				if(self.get_seq_num(rcvd_pkt) == self.send_seq_num):
+				if(self.get_seq_num(rcvd_pkt) == self.send_seq_num and self.isAck(rcvd_pkt)):
 					#expected ack
 					self.timeout_val = self.calc_timeout(time.time() - packet_time_start)
 					#rtt between sending packet and receiving ack
@@ -66,6 +66,7 @@ class rdt_stopandwait(rdt):
 			else:
 				#at timeout reset rtt counter
 				packet_time_start = time.time()
+				self.send_pkt(to_be_sent)						#send packet				
 				trials = trials + 1
 		self.send_seq_num = (self.send_seq_num + 1)% 2
 		# if(trials > max_trials_num):
@@ -86,10 +87,9 @@ class rdt_stopandwait(rdt):
 				if(rec_seq != self.recv_seq_num):
 					#received packet with wrong seq number (our last ack is lost)
 					self.send_pkt(self.make_pkt(b'',(self.recv_seq_num+1)%2))	#resend the ack
-					trials = trials + 1
 					# print('received wrong packet')
 					self.recv_last_pack = time.time()
-				elif (self.check_valid(rcvd_pkt)):
+				elif (self.check_valid(rcvd_pkt) and not self.isAck(rcvd_pkt)):
 					#received the wanted packet
 					self.send_pkt(self.make_pkt(b'',self.recv_seq_num)) #ack that we received the packet correctly
 					self.recv_seq_num = (self.recv_seq_num + 1)%2	#increase seq num for receiving files
@@ -126,3 +126,6 @@ class rdt_stopandwait(rdt):
 		# print(checksum_val, checksum(data), data)
 		return (checksum(data)==checksum_val)
 
+	def isAck(self, pkt):
+		return len(pkt) == 3
+		# 1 seqnum and 2 checksum for ack

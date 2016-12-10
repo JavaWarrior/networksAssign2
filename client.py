@@ -9,7 +9,7 @@ def clientMain(serverIP, server_port, filename, window_size):
 	# message = input("Enter file name:") #take file name as input
 	client_socket = socket(AF_INET, SOCK_DGRAM) #make udp socket
 	saw_rdt_obj = rdt_stopandwait(client_socket, (serverIP, server_port), 0, 0)
-	print("Requesting File:", filename)
+	print('\n' + "Requesting File:", filename)
 
 	delete_file_first('client/' + filename)
 

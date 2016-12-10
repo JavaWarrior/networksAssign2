@@ -32,7 +32,7 @@ class server_thread(threading.Thread):
 			task.start()
 			saw_rdt_obj.clear()
 
-		server_socket.shutdown(1)
+		# server_socket.shutdown(1)
 		server_socket.close()
 
 	def turn_off(self):
@@ -68,7 +68,7 @@ def connection_thread(filename, client_add, seed, plp):
 		print("requested file not found: "+ filename)
 		saw_rdt_obj.rdt_send(b"0")
 
-	thread_socket.shutdown(1)
+	# thread_socket.shutdown(1)
 	thread_socket.close()
 
 #thread = threading.Thread(target = connection_thread)
