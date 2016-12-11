@@ -22,7 +22,8 @@ class rdt:
 	def get_data(self,msg): pass
 	@abstractmethod
 	def check_valid(self, msg): pass
-
+	@abstractmethod
+	def isAck(self, msg): pass
 	def calc_timeout(self,new_rtt):
 		# return 0.001	#used when we want to define constant rtt
 		self.rtt_exp = 0.875 * self.rtt_exp + 0.125 * new_rtt

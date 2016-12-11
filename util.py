@@ -47,3 +47,40 @@ def print_download_bar (iteration, total, prefix = '', suffix = '', decimals = 1
 def util_round(number, factor):
 	return int(number*factor)/factor
 	#rounds number to nearest factor precision e.g. round(1.1234, 10) = 1.1
+
+
+def top(q):
+	with q.mutex:
+		if(q.qsize() > 0 ):
+			return q.queue[0]
+
+def find(q, param, value):
+	for i in range(q.qsize()):
+		obj = 0
+		with q.mutex:
+			obj = q.queue[i]
+		if obj[param] == value:
+			return obj,i
+	return -1,-1
+
+def edit(q, idx, param_list, new_value_list):
+	with q.mutex:
+		if(idx < len(q.queue)):
+			for i in range(len(param_list)):
+				q.queue[idx][param_list[i]] = new_value_list[i]
+def remove(q, idx):
+	x = -1
+	with q.mutex:
+		if(idx < len(q.queue)):
+			x = q.queue[idx]
+			del q.queue[idx]
+	return x
+
+def queue_foreach(q, func):
+	for i in range(q.qsize()):
+		obj = 0
+		with q.mutex:
+			if(i < len(q.queue) ):
+				obj = q.queue[i]
+		if(obj != 0):
+			ret = func(obj,i)
