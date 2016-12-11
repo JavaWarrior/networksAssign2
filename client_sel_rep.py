@@ -8,12 +8,12 @@ import os
 def clientMain(serverIP, server_port, filename, window_size):
 	# message = input("Enter file name:") #take file name as input
 	client_socket = socket(AF_INET, SOCK_DGRAM) #make udp socket
-	client_socket.bind(0)
+	client_socket.bind(("",0))
 	sr_rdt_obj = rdt_sel_rep(client_socket, (serverIP, server_port), 0, 0, window_size)
 	print('\n' + "Requesting File:", filename)
 
 	delete_file_first('client_sel_rep/' + filename)
-
+	sr_rdt_obj.start() #start session
 	sr_rdt_obj.rdt_send_buf(filename.encode())
 	receivedMessage = sr_rdt_obj.rdt_receive()
 

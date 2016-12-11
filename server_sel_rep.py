@@ -22,6 +22,7 @@ class server_thread(threading.Thread):
 		sr_rdt_obj = rdt_sel_rep(server_socket, ("localhost", server_port), plp, seed, window_size)
 
 		print("server started")
+		sr_rdt_obj.start() #start session
 		while self.running:
 			message = sr_rdt_obj.rdt_receive()
 			message = message.decode("utf-8")
@@ -53,6 +54,9 @@ def connection_thread(filename, client_add, seed, plp, window_size):
 		fileSize = os.stat("server/"+filename).st_size
 		print("request: " + filename + ", size: " + str(fileSize))
 		tic = time.time()
+
+		sr_rdt_obj.start() #start session
+
 		sr_rdt_obj.rdt_send_buf(str(fileSize).encode())
 
 		sr_rdt_obj.rdt_send(file)

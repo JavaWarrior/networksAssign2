@@ -28,7 +28,7 @@ class rdt:
 		# return 0.001	#used when we want to define constant rtt
 		self.rtt_exp = 0.875 * self.rtt_exp + 0.125 * new_rtt
 		self.rtt_var = 0.75 * self.rtt_var + 0.25 * abs(self.rtt_exp - new_rtt)
-		# print('\n', new_rtt, self.rtt_exp, self.rtt_var)
+		print('\n', new_rtt, self.rtt_exp, self.rtt_var)
 		# debug = open('rtt_debug.csv', 'w')
 		# debug.write(str(new_rtt) + ', ' + str(self.rtt_exp) + ', ' + str(self.rtt_var))
 		# return max(self.rtt_exp + 4 * self.rtt_var, 0.003)
