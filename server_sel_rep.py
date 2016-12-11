@@ -63,7 +63,7 @@ def connection_thread(filename, client_add, seed, plp, window_size):
 		sr_rdt_obj.rdt_send(b"0")
 
 	# thread_socket.shutdown(1)
-	thread_socket.close()
+	# sr_rdt_obj.turnoff()
 
 #thread = threading.Thread(target = connection_thread)
 #thread.start()

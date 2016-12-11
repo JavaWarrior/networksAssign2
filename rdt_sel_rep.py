@@ -9,8 +9,7 @@ from rdt_interface import *
 from util import *
 import time
 import threading
-import queue
-
+import my_queue
 class rdt_sel_rep(rdt):
 	# constants #
 	header_size = 6 									#extra bits added for header (4 seq num and 2 checksum)
@@ -26,6 +25,10 @@ class rdt_sel_rep(rdt):
 	
 	send_lock = 0
 	recv_lock = 0
+	pkts_cnt_lock = 0
+
+	recv_cond = 0
+	send_cond = 0
 
 	send_base = 0
 	next_seqnum  = 0
@@ -36,11 +39,12 @@ class rdt_sel_rep(rdt):
 	recv_queue = 0
 	running = True
 
+	pkts_cnt = 0
 	def __init__(self, socket, to_add, plp, seed, window_size):
 		#constructor
 		self.self_socket = socket
 		self.to_add = to_add
-		self.self_socket.setblocking(0)
+		# self.self_socket.setblocking(0)
 		self.plp = plp
 		random.seed(seed)
 		self.timeout_val = self.start_timeout_val
@@ -50,9 +54,14 @@ class rdt_sel_rep(rdt):
 
 		self.send_lock = threading.RLock()	
 		self.recv_lock = threading.RLock()	
+		self.pkts_cnt_lock = threading.RLock()
 
-		self.timer_queue = queue.Queue(self.window_size)
-		self.recv_queue = queue.Queue(self.window_size)
+		self.send_cond = threading.Semaphore(0)
+		self.recv_cond = threading.Semaphore(0)
+
+
+		self.timer_queue = my_queue.MyQueue(self.window_size)
+		self.recv_queue = my_queue.MyQueue(self.window_size)
 
 		#start send and receiving threads
 		threading.Thread(target = self.sender_kernel, args = ()).start()
@@ -67,132 +76,136 @@ class rdt_sel_rep(rdt):
 
 		self.send_lock = threading.RLock()	
 		self.recv_lock = threading.RLock()	
+		self.pkts_cnt_lock = threading.RLock()	
+
+		self.send_cond = threading.Semaphore(0)
+		self.recv_cond = threading.Semaphore(0)
 
 		self.send_base = 0
 		self.next_seqnum = 0
 
 		self.recv_base = 0
 
-		self.timer_queue = queue.Queue(self.window_size)
-		self.recv_queue = queue.Queue(self.window_size)
+		self.timer_queue = my_queue.MyQueue(self.window_size)
+		self.recv_queue = my_queue.MyQueue(self.window_size)
 
 		self.running = True
 
+	def turnoff(self):
+		self.running = False
+		self.self_socket.close()
+
 	def rdt_send(self, file):
+		self.pkts_cnt = 0
 		chunk = file.read(packet_data_size)
 		while(chunk):
+			with self.pkts_cnt_lock:
+				self.pkts_cnt = self.pkts_cnt + 1
 			#make object representing this packet
 			obj = {'time': -1, 'data': chunk, 'seqnum': self.gen_seqnum(), 'acked': False}
-			print('sending...')
 			self.timer_queue.put(obj) #queue.put wait till queue has place and puts object in it
 
 			chunk = file.read(packet_data_size) #read another file
 
-		while(not self.timer_queue.empty()): continue
-
-		self.running = False
+		while(1):
+			self.send_cond.acquire()
+			with self.pkts_cnt_lock:
+				# print(self.pkts_cnt)
+				if(self.pkts_cnt == 0):
+					break
 
 	def rdt_send_buf(self, msg):
 		#make object representing this packet
 		obj = {'time': -1, 'data': msg, 'seqnum': self.gen_seqnum(), 'acked': False}
 		self.timer_queue.put(obj) #queue.put wait till queue has place and puts object in it		
-		while(not self.timer_queue.empty()): continue
-
-	def sender_foreach(self,obj,i):
-		if(obj['acked'] and  obj['seqnum'] == self.send_base):
-			#advance window
-			t = self.timer_queue.get()
-			self.send_lock.acquire()
-			self.send_base = (self.send_base + 1)%self.seqnum_max
-			self.calc_timeout(t['time'])
-			self.send_lock.release()
-
-
-		elif (obj['acked']):
-			#do nothing packet already acked
-			return
-		elif (obj['time'] == -1 or time.time() - obj['time'] > self.timeout_val):
-			#resend packet
-			with self.timer_queue.mutex:
-				self.timer_queue.queue[i]['time'] = time.time()
-				#update timer value
-			self.send_pkt(self.make_pkt(obj['data'], obj['seqnum']))
+		while(not self.timer_queue.empty()): self.send_cond.acquire()
 
 	def sender_kernel(self):
 		#sender thread
 		while(self.running):
-			queue_foreach(self.timer_queue, self.sender_foreach)
+			sz = self.timer_queue.qsize()
+			for i in range(sz):
+				obj = self.timer_queue.get_index(i)
+				if(obj != -1):
+					if(obj['acked'] and  obj['seqnum'] == self.send_base):
+						#advance window
+						t = self.timer_queue.get()
+						self.send_base = (self.send_base + 1)%self.seqnum_max
+						self.calc_timeout(t['time'])
+
+					elif (obj['acked']):
+						#do nothing packet already acked
+						return
+					elif (obj['time'] == -1 or time.time() - obj['time'] > self.timeout_val):
+						#update timer value
+						obj['time'] = time.time()
+						#resend packet
+						self.send_pkt(self.make_pkt(obj['data'], obj['seqnum']))
 				
 
 	def receiver_kernel(self):
 		while(self.running):
-			ready = select.select([self.self_socket], [], [], 0)	#wait till received packet
-			if(ready[0]):
+			rcvd_pkt = 0
+			rcvd_pkt,self.to_add = self.self_socket.recvfrom(packet_data_size+self.header_size) #get received packet
+			if(rcvd_pkt):
 				#packet arrived
-				rcvd_pkt,self.to_add = self.self_socket.recvfrom(packet_data_size+self.header_size) #get received packet
 				rec_seqnum = self.get_seq_num(rcvd_pkt)
-				print(rcvd_pkt)
 				if(not self.check_valid(rcvd_pkt)):
 					continue
 				if(self.is_ack(rcvd_pkt)):
 					#ack package received
-					with self.send_lock:
-						if(rec_seqnum == self.send_base):
-							t = self.timer_queue.get()
-							self.calc_timeout(t['time'])
-							self.send_base = (self.send_base + 1)%self.seqnum_max
-						elif(self.is_ack_waited(rec_seqnum)):
-							#we're waiting for this ack
-							obj, idx = find(self.timer_queue, 'seqnum', rec_seqnum)
-							if(rec_seqnum != -1):
-								edit(self.timer_queue, idx, ['acked', 'time'], [True, time.time() - obj['time']])
+					# print('\r', 'received ack', rec_seqnum)
+					if(self.is_ack_waited(rec_seqnum)):
+						#we're waiting for this ack
+						with self.pkts_cnt_lock:
+							self.pkts_cnt = self.pkts_cnt - 1
+						obj= self.timer_queue.find('seqnum', rec_seqnum)
+						if(obj != -1):
+							obj['acked'] = True
+							obj['time'] = time.time()
+						self.send_cond.release()
+						self.send_cond.release()
 				else:
+					# print('\r', 'received msg', rec_seqnum)
 					#we're receiving packets
 					if(self.is_pkt_not_dup(rec_seqnum)):
 						#packet is not duplicate
 						self.recv_queue.put({'data': self.get_data(rcvd_pkt), 'seqnum': rec_seqnum})
 					#ack the packet anyway
+					# self.recv_cond.release()
 					self.send_pkt(self.make_pkt(b'', rec_seqnum))
 
 	def rdt_receive(self):
 		while(1):
-			element, idx = find(self.recv_queue, 'seqnum', self.recv_base)
-			if(idx != -1):
-				element = remove(self.recv_queue, idx)
-				with self.recv_lock:
-					self.recv_base = (self.recv_base + 1)%self.seqnum_max
+			# self.recv_cond.acquire()
+			obj= self.recv_queue.find( 'seqnum', self.recv_base)
+			if(obj != -1):
+				element = self.recv_queue.remove(obj)
+				self.recv_base = (self.recv_base + 1)%self.seqnum_max
 				return element['data']
 
 	def gen_seqnum(self):
-		self.send_lock.acquire()
 		val = self.next_seqnum
 		self.next_seqnum = (self.next_seqnum + 1)% self.seqnum_max
-		self.send_lock.release()
 		return val
 
 	def is_ack_waited(self, seqnum):
-		with self.send_lock:
-			if(self.send_base < self.next_seqnum):
-				return seqnum >= self.send_base and seqnum < self.next_seqnum
-			elif(self.send_base > self.next_seqnum):
-				return seqnum >= self.send_base or seqnum < self.next_seqnum
+		if(self.send_base < self.next_seqnum):
+			return seqnum >= self.send_base and seqnum < self.next_seqnum
+		elif(self.send_base > self.next_seqnum):
+			return seqnum >= self.send_base or seqnum < self.next_seqnum
 
 	def is_pkt_not_dup(self, seqnum):
-		with self.recv_lock:
-			if(self.recv_base + self.window_size < self.seqnum_max ):
-				return seqnum >= self.recv_base and seqnum < self.recv_base + self.window_size
-			else:
-				return seqnum > self.recv_base or seqnum < (self.recv_base + self.window_size)%self.seqnum_max
+		if(self.recv_base + self.window_size < self.seqnum_max ):
+			return seqnum >= self.recv_base and seqnum < self.recv_base + self.window_size
+		else:
+			return seqnum > self.recv_base or seqnum < (self.recv_base + self.window_size)%self.seqnum_max
 
 
 	def send_pkt(self, pkt):
 		if(random.random() >= self.plp):
-			# print(self.plp)
-			ready = select.select([], [self.self_socket], [], 0)
-			while(not ready[1]):
-				ready = select.select([], [self.self_socket], [], 0)
-				#wait until ready then send the packet.
-			self.self_socket.sendto(pkt, self.to_add)
+			threading.Thread(target = self.self_socket.sendto, args = (pkt, self.to_add)).start()
+			# self.self_socket.sendto(pkt, self.to_add)
 	
 
 	def get_seq_num(self, data):

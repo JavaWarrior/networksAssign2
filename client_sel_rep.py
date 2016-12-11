@@ -8,13 +8,14 @@ import os
 def clientMain(serverIP, server_port, filename, window_size):
 	# message = input("Enter file name:") #take file name as input
 	client_socket = socket(AF_INET, SOCK_DGRAM) #make udp socket
-	saw_rdt_obj = rdt_sel_rep(client_socket, (serverIP, server_port), 0, 0, window_size)
+	client_socket.bind(0)
+	sr_rdt_obj = rdt_sel_rep(client_socket, (serverIP, server_port), 0, 0, window_size)
 	print('\n' + "Requesting File:", filename)
 
 	delete_file_first('client_sel_rep/' + filename)
 
-	saw_rdt_obj.rdt_send_buf(filename.encode())
-	receivedMessage = saw_rdt_obj.rdt_receive()
+	sr_rdt_obj.rdt_send_buf(filename.encode())
+	receivedMessage = sr_rdt_obj.rdt_receive()
 
 	# print(receivedMessage)
 
@@ -26,9 +27,9 @@ def clientMain(serverIP, server_port, filename, window_size):
 		count = filesize/packet_data_size
 		tic = time.time()
 		while filesize:
-			chunk = saw_rdt_obj.rdt_receive() #download file in chunks
-			# print_download_bar(count - filesize/packet_data_size, count,
-				# prefix = 'downloading', suffix = util_round(time.time() - tic, 1000))
+			chunk = sr_rdt_obj.rdt_receive() #download file in chunks
+			print_download_bar(count - filesize/packet_data_size, count,
+				prefix = 'downloading', suffix = util_round(time.time() - tic, 1000))
 			filesize = filesize - len(chunk) #deduct length
 			file.write(chunk) #write chunk
 		file.close()
@@ -36,7 +37,7 @@ def clientMain(serverIP, server_port, filename, window_size):
 	else:
 		print("file not found")
 
-	client_socket.close() #close socket
+	# sr_rdt_obj.turnoff()
 
 def start_client(filename):
 	tic = time.time()
@@ -71,11 +72,11 @@ def run_client():
 	
 	#sequential
 
-	thread1.run()
+	# thread1.run()
 	# thread2.run()
 	# thread3.run()
 	# thread4.run()
-	# thread5.run()
+	thread5.run()
 
 	print('whole run completed in:', util_round(time.time() - tic, 1000))
 
