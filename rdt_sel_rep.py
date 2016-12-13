@@ -21,7 +21,6 @@ class rdt_sel_rep(rdt):
 	timeout_val = 0										#time out value (rtt dependent)
 
 	window_size =0
-	seqnum_max = 0
 	
 	send_lock = 0
 	recv_lock = 0
@@ -50,7 +49,6 @@ class rdt_sel_rep(rdt):
 		self.timeout_val = self.start_timeout_val
 
 		self.window_size = window_size
-		self.seqnum_max = window_size * 2 + 1
 
 		self.send_lock = threading.RLock()	
 		self.recv_lock = threading.RLock()	
@@ -83,8 +81,8 @@ class rdt_sel_rep(rdt):
 
 		self.recv_base = 0
 
-		self.timer_queue = my_queue.MyQueue(self.window_size)
-		self.recv_queue = my_queue.MyQueue(self.window_size)
+		self.timer_queue.clear()
+		self.recv_queue.clear()
 
 		self.running = True
 
@@ -101,34 +99,35 @@ class rdt_sel_rep(rdt):
 		self.pkts_cnt = 0
 		chunk = file.read(packet_data_size)
 		while(chunk):
-			with self.pkts_cnt_lock:
-				self.pkts_cnt = self.pkts_cnt + 1
+			# with self.pkts_cnt_lock:
+			# 	self.pkts_cnt = self.pkts_cnt + 1
 			#make object representing this packet
 			obj = {'time': -1, 'data': chunk, 'seqnum': self.gen_seqnum(), 'acked': False}
-			# print('bef', self.send_base, self.next_seqnum)
-			while(self.timer_queue.qsize() == self.window_size): continue
+			# print('bef', self.send_base, self.next_seqnum, self.timer_queue.qsize())
+			# while(self.timer_queue.qsize() == self.window_size): print('loool')
 			self.timer_queue.put(obj) #queue.put wait till queue has place and puts object in it
 			# print('af')
 			chunk = file.read(packet_data_size) #read another file
 
-		while(1):
-			# self.send_cond.acquire()
-			with self.pkts_cnt_lock:
-				# print(self.pkts_cnt)
-				if(self.pkts_cnt <= 0):
-					break
+		# while(1):
+		# 	# self.send_cond.acquire()
+		# 	with self.pkts_cnt_lock:
+		# 		# print(self.pkts_cnt)
+		# 		if(self.pkts_cnt <= 0):
+		# 			break
+		while(not self.timer_queue.empty()): pass
 
 	def rdt_send_buf(self, msg):
 		#make object representing this packet
 		obj = {'time': -1, 'data': msg, 'seqnum': self.gen_seqnum(), 'acked': False}
 		self.timer_queue.put(obj) #queue.put wait till queue has place and puts object in it		
-		with self.pkts_cnt_lock:
-			pkts_cnt_lock = 1
-		# while(not self.timer_queue.empty()): self.send_cond.acquire()
-		while(1):
-			with self.pkts_cnt_lock:
-				if(self.pkts_cnt <=0):
-					break
+		# with self.pkts_cnt_lock:
+		# 	pkts_cnt_lock = 1
+		# # while(not self.timer_queue.empty()): self.send_cond.acquire()
+		# while(1):
+		# 	with self.pkts_cnt_lock:
+		# 		if(self.pkts_cnt <=0):
+		# 			break
 
 	def sender_kernel(self):
 		#sender thread
@@ -137,18 +136,7 @@ class rdt_sel_rep(rdt):
 			for i in range(sz):
 				obj = self.timer_queue.get_index(i)
 				if(obj != -1):
-					# print(obj['seqnum'], self.send_base)
-					if(obj['acked'] and  obj['seqnum'] == self.send_base):
-						#advance window
-						t = self.timer_queue.get()
-						# print(t['seqnum'])
-						self.send_base = (self.send_base + 1)%self.seqnum_max
-						self.calc_timeout(t['time'])
-
-					elif (obj['acked']):
-						#do nothing packet already acked
-						break
-					elif (obj['time'] == -1 or time.time() - obj['time'] > self.timeout_val):
+					if (obj['acked'] == False and (obj['time'] == -1 or time.time() - obj['time'] > self.timeout_val)):
 						#update timer value
 						obj['time'] = time.time()
 						#resend packet
@@ -166,15 +154,26 @@ class rdt_sel_rep(rdt):
 					continue
 				if(self.is_ack(rcvd_pkt)):
 					#ack package received
-					# print('\r', 'received ack', rec_seqnum, self.send_base)
+					print('\r', 'received ack', rec_seqnum)
 					if(self.is_ack_waited(rec_seqnum)):
 						#we're waiting for this ack
-						with self.pkts_cnt_lock:
-							self.pkts_cnt = self.pkts_cnt - 1
-						obj= self.timer_queue.get_index((rec_seqnum - self.send_base)%self.seqnum_max)
+						# with self.pkts_cnt_lock:
+						# 	self.pkts_cnt = self.pkts_cnt - 1
+						obj= self.timer_queue.get_index(rec_seqnum - self.send_base)
 						if(obj != -1):
-							obj['acked'] = True
-							obj['time'] = time.time()-obj['time']
+							if(not obj['acked']):
+								obj['acked'] = True
+								obj['time'] = time.time()-obj['time']
+							while(obj != -1 and obj['seqnum'] == self.send_base):
+								obj = self.timer_queue.get()
+								self.calc_timeout(obj['time'])
+								self.send_base = self.send_base  + 1
+								if(self.timer_queue.qsize() > 0):
+									obj = self.timer_queue.top()
+								else:
+									break
+						else: 
+							print('out')
 						# self.send_cond.release()
 						# self.send_cond.release()
 				else:
@@ -182,41 +181,45 @@ class rdt_sel_rep(rdt):
 					#we're receiving packets
 					if(self.is_pkt_not_dup(rec_seqnum)):
 						#packet is not duplicate
+						if(self.recv_queue.find_idx('seqnum', rec_seqnum) != -1):
+							#package already been found
+							continue
 						self.recv_queue.put({'data': self.get_data(rcvd_pkt), 'seqnum': rec_seqnum})
 					#ack the packet anyway
 					# self.recv_cond.release()
-					self.send_pkt(self.make_pkt(b'', rec_seqnum))
+					if(rec_seqnum < self.recv_base + self.window_size):
+						self.send_pkt(self.make_pkt(b'', rec_seqnum))
 
 	def rdt_receive(self):
 		while(1):
 			# self.recv_cond.acquire()
-			obj= self.recv_queue.find('seqnum', self.recv_base) #packets not ordered
-			# obj = self.recv_queue.get()
+			# obj_idx= self.recv_queue.find_idx('seqnum', self.recv_base) #packets not ordered
+			obj = self.recv_queue.get()
+			# if(obj_idx != -1):
 			if(obj != -1):
-				self.recv_queue.remove(obj)
-				self.recv_base = (self.recv_base + 1)%self.seqnum_max
+				# print('there')
+				self.recv_base = self.recv_base + 1
+				# obj = self.recv_queue.remove(obj_idx)
 				return obj['data']
 
 	def gen_seqnum(self):
 		val = self.next_seqnum
-		self.next_seqnum = (self.next_seqnum + 1)% self.seqnum_max
+		self.next_seqnum = self.next_seqnum + 1
 		return val
 
 	def is_ack_waited(self, seqnum):
-		if(self.send_base < self.next_seqnum):
+		if(self.send_base <= self.next_seqnum):
 			return seqnum >= self.send_base and seqnum < self.next_seqnum
 		elif(self.send_base > self.next_seqnum):
 			return seqnum >= self.send_base or seqnum < self.next_seqnum
 
 	def is_pkt_not_dup(self, seqnum):
-		if(self.recv_base + self.window_size < self.seqnum_max ):
 			return seqnum >= self.recv_base and seqnum < self.recv_base + self.window_size
-		else:
-			return seqnum > self.recv_base or seqnum < (self.recv_base + self.window_size)%self.seqnum_max
 
 
 	def send_pkt(self, pkt):
 		if(random.random() >= self.plp):
+			print('send packet', self.get_seq_num(pkt))
 			# threading.Thread(target = self.self_socket.sendto, args = (pkt, self.to_add)).start()
 			self.self_socket.sendto(pkt, self.to_add)
 	
@@ -244,4 +247,4 @@ class rdt_sel_rep(rdt):
 
 	def is_ack(self, pkt):
 		return len(pkt) == 6
-		# 1 seqnum and 2 checksum for ack
+		# 4 seqnum and 2 checksum for ack

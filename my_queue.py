@@ -5,7 +5,10 @@ class MyQueue(queue.Queue):
 		super().__init__(sz)
 
 	def top(self):
-		return self.queue[0]
+		with self.mutex:
+			if(len(self.queue) > 0):
+				return self.queue[0]
+			return -1
 
 	def get_index(self, idx):
 		with self.mutex:
@@ -19,5 +22,23 @@ class MyQueue(queue.Queue):
 				if(obj[param] == val):
 					return obj
 		return -1
-	def remove(self, obj):
-		del obj
+
+	def find_idx(self, param, val):
+		with self.mutex:
+			for i in range(len(self.queue)):
+				if(self.queue[i][param] == val):
+					return i
+		return -1
+
+	def remove(self, obj_idx):
+		with self.mutex:
+			if(obj_idx < len(self.queue)):
+				x = self.queue[obj_idx]
+				del self.queue[obj_idx]
+			else:
+				x = -1
+		return x
+
+	def clear(self):
+		with self.mutex:
+			self.queue.clear()
